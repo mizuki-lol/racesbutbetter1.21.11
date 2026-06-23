@@ -1,4 +1,4 @@
-name: Build RacesPlugin
+nname: Build RacesPlugin
 
 on:
   push:
@@ -19,10 +19,15 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download Paper 1.21.11
+      - name: Download Paper
         run: |
+          # Получаем последний билд для версии 1.21.11
+          BUILDS=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds")
+          echo "API response: $BUILDS" | head -c 300
+          LATEST=$(echo "$BUILDS" | python3 -c "import sys,json; d=json.load(sys.stdin); builds=d['builds']; print(builds[-1]['build'])")
+          echo "Latest build: $LATEST"
           curl -L --fail --retry 3 -o paper.jar \
-            "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/132/downloads/paper-1.21.11-132.jar"
+            "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/${LATEST}/downloads/paper-1.21.11-${LATEST}.jar"
           echo "Downloaded: $(du -sh paper.jar)"
           file paper.jar
 
