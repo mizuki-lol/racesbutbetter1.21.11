@@ -1,0 +1,48 @@
+name: Build RacesPlugin
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Download Paper 1.21.11
+        run: |
+          curl -L -o paper.jar \
+            "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/132/downloads/paper-1.21.11-132.jar"
+
+      - name: Extract paper-api
+        run: |
+          unzip -p paper.jar \
+            "META-INF/libraries/io/papermc/paper/paper-api/1.21.11-R0.1-SNAPSHOT/paper-api-1.21.11-R0.1-SNAPSHOT.jar" \
+            > paper-api.jar
+
+      - name: Compile
+        run: |
+          mkdir -p build
+          javac -cp paper-api.jar -d build -encoding UTF-8 --release 21 *.java
+
+      - name: Package jar
+        run: |
+          cp plugin.yml build/
+          cd build && jar cf ../RacesPlugin.jar .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RacesPlugin
+          path: RacesPlugin.jar
+          retention-days: 30
