@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -19,52 +19,12 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download Paper 1.21.11 (via Fill API)
-        run: |
-          set -e
-          VERSION="1.21.11"
-          echo "Fetching builds for Paper $VERSION..."
-          BUILDS_JSON=$(curl -s -H "User-Agent: RacesPlugin-CI" \
-            "https://fill.papermc.io/v3/projects/paper/versions/${VERSION}/builds")
+      - name: Build with Maven
+        run: mvn clean package --no-transfer-progress
 
-          DOWNLOAD_URL=$(echo "$BUILDS_JSON" | \
-            jq -r '[.[] | select(.channel == "STABLE")] | sort_by(.id) | last | .downloads."server:default".url')
-
-          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-            echo "No stable build found, falling back to latest build of any channel..."
-            DOWNLOAD_URL=$(echo "$BUILDS_JSON" | jq -r 'sort_by(.id) | last | .downloads."server:default".url')
-          fi
-
-          echo "Downloading: $DOWNLOAD_URL"
-          curl -L -o paper.jar "$DOWNLOAD_URL"
-
-          # Sanity check: make sure we actually got a zip/jar, not an error page
-          if ! unzip -l paper.jar > /dev/null 2>&1; then
-            echo "ERROR: downloaded file is not a valid jar/zip archive!"
-            echo "--- File head for debugging ---"
-            head -c 500 paper.jar
-            exit 1
-          fi
-
-      - name: Extract paper-api
-        run: |
-          unzip -p paper.jar \
-            "META-INF/libraries/io/papermc/paper/paper-api/1.21.11-R0.1-SNAPSHOT/paper-api-1.21.11-R0.1-SNAPSHOT.jar" \
-            > paper-api.jar
-
-      - name: Compile
-        run: |
-          mkdir -p build
-          javac -cp paper-api.jar -d build -encoding UTF-8 --release 21 *.java
-
-      - name: Package jar
-        run: |
-          cp plugin.yml build/
-          cd build && jar cf ../RacesPlugin.jar .
-
-      - name: Upload artifact
+      - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RacesPlugin
-          path: RacesPlugin.jar
+          name: RacesPlugin-${{ github.sha }}
+          path: target/*.jar
           retention-days: 30
