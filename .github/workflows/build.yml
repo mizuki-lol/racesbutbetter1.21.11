@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -19,37 +19,12 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download Paper
-        run: |
-          BUILDS=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds")
-          LATEST=$(echo "$BUILDS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['builds'][-1]['build'])")
-          echo "Latest build: $LATEST"
-          curl -L --fail --retry 3 -o paper.jar \
-            "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/${LATEST}/downloads/paper-1.21.11-${LATEST}.jar"
-          file paper.jar
+      - name: Build with Maven
+        run: mvn clean package --no-transfer-progress
 
-      - name: Extract paper-api
-        run: |
-          APIPATH=$(unzip -l paper.jar | grep "paper-api.*SNAPSHOT.jar" | awk '{print $4}' | head -1)
-          echo "Found: $APIPATH"
-          unzip -p paper.jar "$APIPATH" > paper-api.jar
-
-      - name: Compile
-        run: |
-          mkdir -p build
-          find . -maxdepth 1 -name "*.java" > sources.txt
-          echo "Sources:"
-          cat sources.txt
-          javac -cp paper-api.jar -d build -encoding UTF-8 --release 21 @sources.txt
-
-      - name: Package jar
-        run: |
-          cp plugin.yml build/
-          cd build && jar cf ../RacesPlugin.jar .
-
-      - name: Upload artifact
+      - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RacesPlugin
-          path: RacesPlugin.jar
+          name: RacesPlugin-${{ github.sha }}
+          path: target/RacesPlugin.jar
           retention-days: 30
