@@ -21,27 +21,26 @@ jobs:
 
       - name: Download Paper
         run: |
-          # Получаем последний билд для версии 1.21.11
           BUILDS=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds")
-          echo "API response: $BUILDS" | head -c 300
-          LATEST=$(echo "$BUILDS" | python3 -c "import sys,json; d=json.load(sys.stdin); builds=d['builds']; print(builds[-1]['build'])")
+          LATEST=$(echo "$BUILDS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['builds'][-1]['build'])")
           echo "Latest build: $LATEST"
           curl -L --fail --retry 3 -o paper.jar \
             "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/${LATEST}/downloads/paper-1.21.11-${LATEST}.jar"
-          echo "Downloaded: $(du -sh paper.jar)"
           file paper.jar
 
       - name: Extract paper-api
         run: |
           APIPATH=$(unzip -l paper.jar | grep "paper-api.*SNAPSHOT.jar" | awk '{print $4}' | head -1)
-          echo "Found api at: $APIPATH"
+          echo "Found: $APIPATH"
           unzip -p paper.jar "$APIPATH" > paper-api.jar
-          echo "Size: $(du -sh paper-api.jar)"
 
       - name: Compile
         run: |
           mkdir -p build
-          javac -cp paper-api.jar -d build -encoding UTF-8 --release 21 *.java
+          find . -maxdepth 1 -name "*.java" > sources.txt
+          echo "Sources:"
+          cat sources.txt
+          javac -cp paper-api.jar -d build -encoding UTF-8 --release 21 @sources.txt
 
       - name: Package jar
         run: |
