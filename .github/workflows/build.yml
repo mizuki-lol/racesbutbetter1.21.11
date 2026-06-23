@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -19,12 +19,33 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Build with Maven
-        run: mvn clean package --no-transfer-progress
+      - name: Download Paper 1.21.11
+        run: |
+          curl -L --fail --retry 3 -o paper.jar \
+            "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/132/downloads/paper-1.21.11-132.jar"
+          echo "Downloaded: $(du -sh paper.jar)"
+          file paper.jar
 
-      - name: Upload JAR artifact
+      - name: Extract paper-api
+        run: |
+          APIPATH=$(unzip -l paper.jar | grep "paper-api.*SNAPSHOT.jar" | awk '{print $4}' | head -1)
+          echo "Found api at: $APIPATH"
+          unzip -p paper.jar "$APIPATH" > paper-api.jar
+          echo "Size: $(du -sh paper-api.jar)"
+
+      - name: Compile
+        run: |
+          mkdir -p build
+          javac -cp paper-api.jar -d build -encoding UTF-8 --release 21 *.java
+
+      - name: Package jar
+        run: |
+          cp plugin.yml build/
+          cd build && jar cf ../RacesPlugin.jar .
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RacesPlugin-${{ github.sha }}
-          path: target/*.jar
+          name: RacesPlugin
+          path: RacesPlugin.jar
           retention-days: 30
