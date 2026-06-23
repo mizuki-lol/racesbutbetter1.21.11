@@ -19,10 +19,32 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download Paper 1.21.11
+      - name: Download Paper 1.21.11 (via Fill API)
         run: |
-          curl -L -o paper.jar \
-            "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/132/downloads/paper-1.21.11-132.jar"
+          set -e
+          VERSION="1.21.11"
+          echo "Fetching builds for Paper $VERSION..."
+          BUILDS_JSON=$(curl -s -H "User-Agent: RacesPlugin-CI" \
+            "https://fill.papermc.io/v3/projects/paper/versions/${VERSION}/builds")
+
+          DOWNLOAD_URL=$(echo "$BUILDS_JSON" | \
+            jq -r '[.[] | select(.channel == "STABLE")] | sort_by(.id) | last | .downloads."server:default".url')
+
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+            echo "No stable build found, falling back to latest build of any channel..."
+            DOWNLOAD_URL=$(echo "$BUILDS_JSON" | jq -r 'sort_by(.id) | last | .downloads."server:default".url')
+          fi
+
+          echo "Downloading: $DOWNLOAD_URL"
+          curl -L -o paper.jar "$DOWNLOAD_URL"
+
+          # Sanity check: make sure we actually got a zip/jar, not an error page
+          if ! unzip -l paper.jar > /dev/null 2>&1; then
+            echo "ERROR: downloaded file is not a valid jar/zip archive!"
+            echo "--- File head for debugging ---"
+            head -c 500 paper.jar
+            exit 1
+          fi
 
       - name: Extract paper-api
         run: |
