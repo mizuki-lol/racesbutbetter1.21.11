@@ -1,4 +1,4 @@
-nname: Build RacesPlugin
+name: Build RacesPlugin
 
 on:
   push:
